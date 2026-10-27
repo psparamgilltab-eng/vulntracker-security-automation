@@ -215,3 +215,77 @@ We are not grading on volume. We are grading on judgment.
 - **Communication**: Would a non-technical executive understand your summary?
 
 Good luck. If anything in the brief is ambiguous, document your assumption and proceed.
+
+## Docker Build and Run
+
+Build the Python FastAPI application image from the repository root:
+
+```powershell
+docker build -t vulntracker:local .
+```
+
+Run the container with persistent storage:
+
+```powershell
+docker volume create vulntracker-data
+docker run -d --name vulntracker -p 8000:8000 -v vulntracker-data:/data -e SECRET_KEY="replace-with-a-strong-random-secret" vulntracker:local
+```
+
+Replace the example secret with a securely generated value. Never commit real secrets to source control.
+
+Check application health:
+
+```powershell
+Invoke-WebRequest http://localhost:8000/health -UseBasicParsing
+```
+
+A successful response returns HTTP 200 and a JSON status of `ok`.
+
+Open the interactive API documentation at `http://localhost:8000/docs`.
+
+View logs:
+
+```powershell
+docker logs vulntracker
+```
+
+Remove the test container when finished:
+
+```powershell
+docker rm -f vulntracker
+```
+
+## Kubernetes Deployment with Terraform
+
+The `terraform/` directory defines Kubernetes deployment resources, including a dedicated namespace, an application service account, a persistent volume claim, an External Secrets Operator resource, a ClusterIP service, a NetworkPolicy, resource limits, security contexts, and health probes.
+
+Prerequisites include Terraform, a configured Kubernetes cluster and kubeconfig, External Secrets Operator, a configured `ClusterSecretStore`, and the required external secret.
+
+Format and validate:
+
+```powershell
+terraform -chdir=terraform fmt
+terraform -chdir=terraform validate
+```
+
+Review the proposed changes before deploying:
+
+```powershell
+terraform -chdir=terraform plan
+```
+
+Apply only after reviewing the target cluster, secret-store configuration, ingress restrictions, and storage settings:
+
+```powershell
+terraform -chdir=terraform apply
+```
+
+The current configuration uses one replica because the application uses SQLite on a persistent volume. For a production deployment requiring multiple replicas, migrate to a managed database such as PostgreSQL and implement appropriate backup, recovery, and availability controls.
+
+## Security Assessment Documents
+
+- `docs/findings.md` — prioritized security findings and business impact.
+- `docs/remediation-plan.md` — completed fixes, residual risks, and recommended remediation.
+- `docs/executive-summary.md` — executive-level security posture and next steps.
+
+Scanner reports are stored in `reports/`. Findings should be reviewed and scans rerun against the final code and image before production release.

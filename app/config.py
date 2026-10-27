@@ -1,14 +1,36 @@
-DATABASE_URL = "sqlite:///./vulntracker.db"
 
-SECRET_KEY = "v3ry-s3cr3t-jwt-k3y-do-not-share"
+import os
+import secrets
+
+
+# Database connection
+DATABASE_URL = os.getenv(
+    "DATABASE_URL",
+    "sqlite:///./vulntracker.db",
+)
+
+# JWT configuration.
+# A temporary random key keeps local development working if SECRET_KEY
+# is not configured. Set a persistent SECRET_KEY in every real deployment.
+SECRET_KEY = os.getenv("SECRET_KEY") or secrets.token_urlsafe(32)
+
+# Keep the signing algorithm fixed to the supported secure algorithm.
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
-# Database credentials (migrate to env vars before production deployment)
-DB_USER = "vulntracker_app"
-DB_PASSWORD = "Tr@cker2024!"
+ACCESS_TOKEN_EXPIRE_MINUTES = int(
+    os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30")
+)
 
-# Internal service API key
-ADMIN_API_KEY = "sk-vt-prod-8f3a2b1c9d4e5f6a7b8c9d0e1f2a3b4c"
+# Optional database credentials for deployments that use a database
+# requiring separate credentials. Do not use these as embedded secrets.
+DB_USER = os.getenv("DB_USER", "")
+DB_PASSWORD = os.getenv("DB_PASSWORD", "")
 
-NOTIFY_SERVICE_URL = "http://localhost:3001"
+# Optional internal service API key.
+ADMIN_API_KEY = os.getenv("ADMIN_API_KEY", "")
+
+# Notification service URL
+NOTIFY_SERVICE_URL = os.getenv(
+    "NOTIFY_SERVICE_URL",
+    "http://localhost:3001",
+)

@@ -1,13 +1,31 @@
+
 from sqlalchemy import create_engine, text
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import declarative_base, sessionmaker
 
 from config import DATABASE_URL
 
-engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+# ---------------------------------------------------------------------------
+# Database connection
+# ---------------------------------------------------------------------------
+
+engine = create_engine(
+    DATABASE_URL,
+    connect_args={"check_same_thread": False},
+)
+
+SessionLocal = sessionmaker(
+    autocommit=False,
+    autoflush=False,
+    bind=engine,
+)
+
 Base = declarative_base()
 
+
+# ---------------------------------------------------------------------------
+# Database session dependency
+# ---------------------------------------------------------------------------
 
 def get_db():
     db = SessionLocal()
@@ -17,13 +35,46 @@ def get_db():
         db.close()
 
 
-def search_scans_by_query(db, query: str) -> list:
-    # Raw SQL used here for full-text search flexibility across multiple columns
-    sql = (
-        f"SELECT id, title, description, severity, status, cve_id, "
-        f"affected_component, owner_id, created_at FROM scan_results "
-        f"WHERE title LIKE '%{query}%' OR description LIKE '%{query}%' "
-        f"OR cve_id LIKE '%{query}%'"
+# ---------------------------------------------------------------------------
+# Secure scan search
+# ---------------------------------------------------------------------------
+
+def search_scans_by_query(db, query: str, owner_id: int) -> list:
+    """
+    Search scans belonging only to the specified user.
+
+    Bound parameters prevent user input from being interpreted as SQL code.
+    The owner_id condition prevents cross-user search results.
+    """
+    sql = text(
+        """
+        SELECT
+            id,
+            title,
+            description,
+            severity,
+            status,
+            cve_id,
+            affected_component,
+            owner_id,
+            created_at
+        FROM scan_results
+        WHERE owner_id = :owner_id
+          AND (
+              title LIKE :pattern
+              OR description LIKE :pattern
+              OR cve_id LIKE :pattern
+          )
+        ORDER BY created_at DESC
+        """
     )
-    result = db.execute(text(sql))
+
+    result = db.execute(
+        sql,
+        {
+            "owner_id": owner_id,
+            "pattern": f"%{query}%",
+        },
+    )
+
     return [dict(row._mapping) for row in result]

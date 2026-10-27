@@ -20,3 +20,14 @@ env/
 htmlcov/
 node_modules/
 .claude/
+
+baseline/
+
+.env
+.env.*
+!.env.example
+# Terraform local cache and state
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+crash.log
