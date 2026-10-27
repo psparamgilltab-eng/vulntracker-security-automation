@@ -289,3 +289,28 @@ The current configuration uses one replica because the application uses SQLite o
 - `docs/executive-summary.md` — executive-level security posture and next steps.
 
 Scanner reports are stored in `reports/`. Findings should be reviewed and scans rerun against the final code and image before production release.
+
+
+
+## Running Tests
+
+Run the Python API tests from the project root:
+
+```powershell
+python -m pytest tests -v
+```
+
+Run the notification service tests:
+
+```powershell
+Set-Location C:\Projects\asa-assignment-main\notify
+npm test
+```
+
+Both test suites passed during local verification: 17 Python tests and 8 Node.js tests.
+
+## Deployment Status
+
+The Docker image was built and the application health endpoint was tested successfully. Terraform configuration was validated. A live Kubernetes deployment has not yet been verified.
+
+Before deploying, review the Terraform plan and confirm that the Kubernetes cluster, External Secrets Operator, secret store, network restrictions, and storage configuration are correctly configured.
