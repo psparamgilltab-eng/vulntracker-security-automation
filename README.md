@@ -1,249 +1,112 @@
-# Security Automation Engineer — Take-Home Assignment
+# VulnTracker Security Automation
 
-Welcome. This assignment is designed to reflect the real work of a Lead Security Automation Engineer: extending an existing service, identifying and assessing security risks, remediating them with code, and deploying it securely. There are no trick questions — we are evaluating your depth of knowledge, your judgment under constraints, and your ability to communicate risk.
+VulnTracker is a Python FastAPI service for managing vulnerability scan results. This project adds secure report sharing and includes security scans, remediation documentation, a Docker image, and Terraform configuration for Kubernetes deployment.
 
-**Estimated time: 4–6 hours.** We respect your time. If you find yourself going significantly over, scope down rather than rushing.
+## Features
 
----
+- Create, view, search, update, and delete scan records.
+- Restrict scan access to the authenticated owner.
+- Share an individual scan through a unique link.
+- Set an optional password for shared reports.
+- Expire shared links after 24 hours.
+- Run automated tests for the API and notification service.
+- Store security scan reports and document outstanding risks.
 
-## Background
+## Technologies
 
-**VulnTracker** is a two-service system for managing vulnerability scan results:
+- Python 3.11 and FastAPI
+- Node.js and Express
+- Docker
+- Terraform and Kubernetes
+- Bandit, pip-audit, npm audit, and Trivy
 
-- **`app/`** — Python/FastAPI REST API. Security teams use it to log findings, track remediation, and share reports with stakeholders.
-- **`notify/`** — Node.js/Express notification service. Intended to dispatch webhook events to registered endpoints when scan records are created or updated.
+## Requirements
 
-Both services are working but imperfect internal prototypes. Neither has gone through a formal security review. The Python API calls the notification service in the background whenever a scan is created or updated — start both services to see the full flow.
+Install Python 3.11, Node.js 20 or later, npm, and Docker. Terraform and a configured Kubernetes cluster are needed only for deployment.
 
----
+## Run the Python API
 
-## Getting Started
+From the repository root, create and activate a virtual environment:
 
-**Create your own repository for this assignment.** Do not fork — your solution must be in a fresh repo. You may use the starter code as a base, but your work must be in your own repo.
-
-```bash
-# 1. Clone the assignment repo locally
-git clone https://github.com/cloudtriquetra/asa-assignment.git
-cd asa-assignment
-
-# 2. Point it at your own new GitHub repo (create one first at github.com)
-git remote set-url origin https://github.com/<your-username>/<your-repo>.git
-git push -u origin main
-```
-
-From here, work on your own repo and share its URL when you submit.
-
-**Requirements:** Python 3.11 (exactly — see CI), Node.js 20+, Docker
-
-**Python API (`app/`)**
-
-```bash
+```powershell
 python -m venv .venv
-source .venv/bin/activate       # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
+.\.venv\Scripts\Activate.ps1
+python -m pip install -r requirements.txt
 ```
 
-The API must be started from inside the `app/` directory — the modules use bare imports and won't resolve from the repo root:
+Run the API from the `app` directory:
 
-```bash
-cd app
-uvicorn main:app --reload
+```powershell
+Set-Location app
+python -m uvicorn main:app --reload
 ```
 
-Available at `http://localhost:8000`. Interactive docs at `http://localhost:8000/docs`.
+The API is available at http://localhost:8000.
 
-Run the Python test suite from the **repo root**:
+Interactive API documentation is available at http://localhost:8000/docs.
 
-```bash
-pytest tests/ -v
-```
+## Run the notification service
 
-**Notification Service (`notify/`)**
+Open a separate terminal from the repository root:
 
-```bash
-cd notify
+```powershell
+Set-Location notify
 npm install
 npm start
 ```
 
-Available at `http://localhost:3001`.
+The notification service listens on port 3001.
 
-Run the Node.js test suite (stop the notify service first if it is running — the test suite starts its own server on the same port):
+## Run the tests
 
-```bash
-cd notify
+Run the Python tests from the repository root:
+
+```powershell
+python -m pytest tests -v
+```
+
+Run the notification service tests:
+
+```powershell
+Set-Location notify
 npm test
 ```
 
----
+During local verification, all 17 Python tests and all 8 notification-service tests passed.
 
-## Your Tasks
+## Build and run with Docker
 
-### Task 1 — Extend the App _(~1–1.5 hrs)_
-
-Implement the **"Shared Report Link"** feature:
-
-> As a VulnTracker user, I want to share a specific scan result with an external stakeholder (e.g. a customer or auditor) via a unique link. The link must expire after **24 hours** and must support **optional password protection**.
-
-Add the following endpoints to the app:
-
-| Method | Path                     | Auth          | Description                                                                                                              |
-| ------ | ------------------------ | ------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| `POST` | `/scans/{scan_id}/share` | Bearer token  | Generate a share token for a scan. Accepts optional `password` in the request body. Returns `{ "share_url": "..." }`     |
-| `GET`  | `/share/{token}`         | None (public) | Return the scan data if the token is valid and not expired. If password-protected, require a `password` query parameter. |
-
-Implementation choices are yours. We will read and evaluate the code you write here — including the security properties of your implementation. For the `share_url` value, use the incoming request's host, or hard-code `http://localhost:8000` for the prototype — document whichever you choose.
-
----
-
-### Task 2 — Security Analysis _(~1.5 hrs)_
-
-#### 2a. Run the required scans
-
-You must run **all four** of the following scan categories. Select an appropriate open-source or free-tier tool for each — your tool choices are part of the evaluation.
-
-| Scan type                                      | What it covers                                                                         |
-| ---------------------------------------------- | -------------------------------------------------------------------------------------- |
-| **Static Application Security Testing (SAST)** | Source code — identify insecure coding patterns, injection risks, hardcoded secrets    |
-| **Dependency / SCA vulnerability scan**        | Third-party packages — known CVEs in pinned dependencies                               |
-| **Container image scan**                       | The Docker image you build — OS packages, installed libraries, misconfigurations       |
-| **Infrastructure-as-Code (IaC) security scan** | Your Helm chart or Terraform — misconfigurations, insecure defaults, policy violations. Complete Task 4 first, then run this scan. |
-
-Save the raw JSON output of each tool to the `reports/` directory, named clearly by scan type:
-
-```
-reports/
-├── sast.<tool>.json
-├── sca.<tool>.json
-├── container.<tool>.json
-└── iac.<tool>.json
-```
-
-#### 2b. Prioritised findings
-
-Write a `docs/findings.md` with a table of security findings, sourced from your scans and your own manual review. For each finding:
-
-- Tool and scan type that detected it (or "manual")
-- Severity (your assessment — justify it)
-- Business impact in the context of _this specific application_
-- Whether it is in the starter code or in your new feature
-
-**Do not copy-paste tool output.** We are evaluating your ability to interpret findings and apply business context to prioritisation — not your ability to run a command.
-
----
-
-### Task 3 — Remediate _(~1 hr)_
-
-- Fix **at least 3 critical or high severity findings** in code. Show the changes clearly (they will be visible in your git diff / PR).
-- At least one fix must be in the code you wrote in Task 1.
-- For findings you do not fix, document why in `docs/remediation-plan.md`: what is the residual risk, what effort would remediation require, and what compensating controls (if any) exist?
-
----
-
-### Task 4 — Containerisation and Deployment Artifacts _(~30–45 min)_
-
-#### Dockerfile (mandatory)
-
-Write a production-grade `Dockerfile` for the **Python FastAPI service** (`app/`). It must:
-
-- Use a minimal, pinned base image
-- Run as a non-root user
-- Include a `HEALTHCHECK`
-- Not embed secrets or credentials
-
-The container image must build successfully and the app must be reachable via `docker run`. Include build and run instructions in your README.
-
-#### Infrastructure
-
-Add either a `terraform/` or `helm/` directory (your choice) that could deploy this service to a Kubernetes cluster or cloud environment. Your deployment must:
-
-- Source secrets from a secrets manager (not hardcoded in manifests or env vars)
-- Restrict network ingress to only what is required
-- Define resource limits and security contexts
-
----
-
-### Task 5 — Executive Summary _(~30 min)_
-
-Write `docs/executive-summary.md` as if you are presenting to a CISO who has 5 minutes.
-
-Cover:
-
-1. The overall security posture of the application before and after your work
-2. The top 3 residual risks and the reason they were not fully remediated
-3. Your recommended next steps if this were a real production service
-
-No jargon. No tool names in the first paragraph. Your audience cares about business risk, not CVE numbers.
-
----
-
-## Submission
-
-Push your completed solution to your own GitHub repository and share the URL with us. Your repository must contain:
-
-```
-/
-├── app/                        # extended Python API code
-├── notify/                     # Node.js notification service (no changes required)
-├── Dockerfile                  # mandatory (may cover one or both services)
-├── reports/
-│   ├── sast.<tool>.json
-│   ├── sca.<tool>.json
-│   ├── container.<tool>.json
-│   └── iac.<tool>.json
-├── terraform/  OR  helm/
-├── docs/
-│   ├── findings.md
-│   ├── remediation-plan.md
-│   └── executive-summary.md
-├── tests/                      # updated if you added Python tests
-└── README.md                   # update with Docker build/run instructions
-```
-
-CI must pass (green) on your repo before submission.
-
----
-
-## What We Are Looking For
-
-We are not grading on volume. We are grading on judgment.
-
-- **Security depth**: Did you find the real issues? Did you prioritise them correctly for this application?
-- **Implementation security**: Does your new feature introduce, or avoid, new vulnerabilities?
-- **Remediation quality**: Are your fixes correct and complete? Are your deferral reasons honest?
-- **Deployment security**: Does your container and infrastructure configuration reflect real-world security practices?
-- **Communication**: Would a non-technical executive understand your summary?
-
-Good luck. If anything in the brief is ambiguous, document your assumption and proceed.
-
-## Docker Build and Run
-
-Build the Python FastAPI application image from the repository root:
+Build the API image from the repository root:
 
 ```powershell
 docker build -t vulntracker:local .
 ```
 
-Run the container with persistent storage:
+Generate a temporary strong secret for local testing:
+
+```powershell
+$secret = python -c "import secrets; print(secrets.token_urlsafe(48))"
+```
+
+Create persistent storage and start the container:
 
 ```powershell
 docker volume create vulntracker-data
-docker run -d --name vulntracker -p 8000:8000 -v vulntracker-data:/data -e SECRET_KEY="replace-with-a-strong-random-secret" vulntracker:local
+
+docker run -d --name vulntracker `
+  -p 8000:8000 `
+  -v vulntracker-data:/data `
+  -e SECRET_KEY="$secret" `
+  vulntracker:local
 ```
 
-Replace the example secret with a securely generated value. Never commit real secrets to source control.
-
-Check application health:
+Check the health endpoint:
 
 ```powershell
 Invoke-WebRequest http://localhost:8000/health -UseBasicParsing
 ```
 
-A successful response returns HTTP 200 and a JSON status of `ok`.
-
-Open the interactive API documentation at `http://localhost:8000/docs`.
-
-View logs:
+View container logs:
 
 ```powershell
 docker logs vulntracker
@@ -255,62 +118,66 @@ Remove the test container when finished:
 docker rm -f vulntracker
 ```
 
-## Kubernetes Deployment with Terraform
+Never commit real secrets to source control. For production, use an appropriate secrets manager.
 
-The `terraform/` directory defines Kubernetes deployment resources, including a dedicated namespace, an application service account, a persistent volume claim, an External Secrets Operator resource, a ClusterIP service, a NetworkPolicy, resource limits, security contexts, and health probes.
+## Kubernetes deployment with Terraform
 
-Prerequisites include Terraform, a configured Kubernetes cluster and kubeconfig, External Secrets Operator, a configured `ClusterSecretStore`, and the required external secret.
+The `terraform/` directory contains Kubernetes resources for the API, including a namespace, service account, persistent storage, a ClusterIP service, network restrictions, resource limits, security contexts, health probes, and an External Secrets Operator resource.
 
-Format and validate:
+Prerequisites:
+
+- Terraform and a configured Kubernetes cluster
+- A working Kubernetes context and kubeconfig
+- External Secrets Operator and a configured `ClusterSecretStore`
+- The required external secret and storage support
+
+Format and validate the configuration:
 
 ```powershell
 terraform -chdir=terraform fmt
 terraform -chdir=terraform validate
 ```
 
-Review the proposed changes before deploying:
+Review the proposed changes before deployment:
 
 ```powershell
 terraform -chdir=terraform plan
 ```
 
-Apply only after reviewing the target cluster, secret-store configuration, ingress restrictions, and storage settings:
+Apply only after verifying the target cluster, secret configuration, ingress restrictions, and storage settings:
 
 ```powershell
 terraform -chdir=terraform apply
 ```
 
-The current configuration uses one replica because the application uses SQLite on a persistent volume. For a production deployment requiring multiple replicas, migrate to a managed database such as PostgreSQL and implement appropriate backup, recovery, and availability controls.
+The configuration uses one replica because the application currently uses SQLite. A production deployment requiring multiple replicas should migrate to a shared database such as PostgreSQL and include backup and recovery controls.
 
-## Security Assessment Documents
+Terraform validation has passed, but a live Kubernetes deployment has not been verified.
 
-- `docs/findings.md` — prioritized security findings and business impact.
-- `docs/remediation-plan.md` — completed fixes, residual risks, and recommended remediation.
-- `docs/executive-summary.md` — executive-level security posture and next steps.
+## Security assessment
 
-Scanner reports are stored in `reports/`. Findings should be reviewed and scans rerun against the final code and image before production release.
+The `reports/` directory contains the scan outputs:
 
+| Scan category | Tool | Report |
+|---|---|---|
+| SAST | Bandit | `reports/sast.bandit.json` |
+| Python dependencies | pip-audit | `reports/sca.pip-audit.json` |
+| Node.js dependencies | npm audit | `reports/sca.npm-audit.json` |
+| Container image | Trivy | `reports/container.trivy.json` |
+| Container SBOM | Trivy | `reports/container-sbom.json` |
+| Infrastructure as Code | Trivy | `reports/iac.trivy.json` |
 
+The security documentation is available here:
 
-## Running Tests
+- `docs/findings.md` — prioritized findings and their business impact.
+- `docs/remediation-plan.md` — completed fixes, remaining risks, and recommended controls.
+- `docs/executive-summary.md` — overall security posture and recommended next steps.
 
-Run the Python API tests from the project root:
+Scan results should be reviewed against the final code and image before production use.
 
-```powershell
-python -m pytest tests -v
-```
+## CI
 
-Run the notification service tests:
+The GitHub Actions workflow runs the project's automated checks.
 
-```powershell
-Set-Location C:\Projects\asa-assignment-main\notify
-npm test
-```
+[View the CI workflow](https://github.com/psparamgilltab-eng/vulntracker-security-automation/actions)
 
-Both test suites passed during local verification: 17 Python tests and 8 Node.js tests.
-
-## Deployment Status
-
-The Docker image was built and the application health endpoint was tested successfully. Terraform configuration was validated. A live Kubernetes deployment has not yet been verified.
-
-Before deploying, review the Terraform plan and confirm that the Kubernetes cluster, External Secrets Operator, secret store, network restrictions, and storage configuration are correctly configured.
